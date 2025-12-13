@@ -1,0 +1,19 @@
+
+namespace ZXTemplate.UI
+{
+    public class UIService : IUIService
+    {
+        public UIRoot Root { get; }
+
+        public UIService(UIRoot root) => Root = root;
+
+        public void Push(UIWindow windowPrefab) => Root.Stack.Push(windowPrefab);
+        public void Pop() => Root.Stack.Pop();
+        public void ShowLoading(bool show)
+        {
+            if (Root.Loading == null) return;
+            if (show) Root.Loading.Show();
+            else Root.Loading.Hide();
+        }
+    }
+}
