@@ -6,5 +6,7 @@ namespace ZXTemplate.Audio
         void StopBGM();
         void PlaySFX(string id);
         void SetMixerVolume(string exposedParam, float volume01);
+
+        bool TryGetMixerDb(string exposedParam, out float db);
     }
 }

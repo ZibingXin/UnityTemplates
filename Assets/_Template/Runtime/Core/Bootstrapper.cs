@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.Audio;
 using ZXTemplate.Core;
 using ZXTemplate.Scenes;
 using ZXTemplate.UI;
 using ZXTemplate.Input;
 using ZXTemplate.Save;
 using ZXTemplate.Audio;
+using ZXTemplate.Progress;
+
 
 namespace ZXTemplate.Core
 {
@@ -37,8 +40,10 @@ namespace ZXTemplate.Core
             var sceneService = new SceneService(uiService);
             var inputService = new InputService(inputActions);
             var saveService = new JsonSaveService();
+            var progressService = new ProgressService(saveService);
 
             // 3) Audio service (depends on UI? no)
+            audioMixer.updateMode = AudioMixerUpdateMode.UnscaledTime;
             var audioService = new AudioService(audioMixer, audioLibrary, bgmGroup, sfxGroup);
 
             // Register
@@ -48,10 +53,12 @@ namespace ZXTemplate.Core
             ServiceContainer.Register<IInputService>(inputService);
             ServiceContainer.Register<ISaveService>(saveService);
             ServiceContainer.Register<IAudioService>(audioService);
+            ServiceContainer.Register<IProgressService>(progressService);
 
             var save = ServiceContainer.Get<ZXTemplate.Save.ISaveService>();
             if (!save.TryLoad(SettingsKeys.Audio, out SettingsData data) || data == null)
                 data = new SettingsData();
+
 
             SettingsApplier.ApplyAudio(data);
 

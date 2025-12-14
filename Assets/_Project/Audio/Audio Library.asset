@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ZXTemplate.Audio.AudioLibrary
   clips:
   - id: bgm_menu
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: cb2c8884098a9294992933a7783870f2, type: 3}
   - id: bgm_game
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 816b6eab58d24c646a55f35fb63b0f1f, type: 3}
   - id: sfx_click
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 80d3799791748ac42b3ec097c17a2383, type: 3}

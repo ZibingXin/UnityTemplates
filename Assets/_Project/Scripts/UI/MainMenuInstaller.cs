@@ -1,5 +1,6 @@
 using UnityEngine;
 using ZXTemplate.Core;
+using ZXTemplate.Input;
 using ZXTemplate.UI;
 
 public class MainMenuInstaller : MonoBehaviour
@@ -8,6 +9,7 @@ public class MainMenuInstaller : MonoBehaviour
 
     private void Start()
     {
+        ServiceContainer.Get<IInputService>().EnableUI();
         ServiceContainer.Get<IUIService>().Push(mainMenuPrefab);
     }
 }

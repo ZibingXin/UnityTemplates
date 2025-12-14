@@ -14,10 +14,6 @@ public class SettingsWindow : UIWindow
 
     [SerializeField] private Button closeButton;
 
-    [Header("Behavior")]
-    [Tooltip("在游戏内打开设置时一般需要暂停；MainMenu里可以不暂停")]
-    [SerializeField] private bool pauseGameOnOpen = true;
-
     private ISaveService _save;
     private IInputService _input;
     private IPauseService _pause;
@@ -27,6 +23,11 @@ public class SettingsWindow : UIWindow
 
     public override void OnPushed()
     {
+        Debug.Log($"AudioListener.pause={AudioListener.pause}, volume={AudioListener.volume}");
+        FindFirstObjectByType<AudioProbe>()?.Dump("OpenSettings");
+        Debug.Log("timeScale=" + Time.timeScale);
+
+
         _save = ServiceContainer.Get<ISaveService>();
         _input = ServiceContainer.Get<IInputService>();
         _pause = ServiceContainer.Get<IPauseService>();
@@ -38,13 +39,10 @@ public class SettingsWindow : UIWindow
         // 2) Apply once (确保启动时也一致)
         SettingsApplier.ApplyAudio(_data);
 
-        // 3) Pause & Input
-        if (pauseGameOnOpen)
-            _pauseToken = _pause.Acquire("Settings");
-
+        // 3) Input UI
         _input.EnableUI();
 
-        // 4) Init sliders (避免触发事件先把 value 赋好再绑事件)
+        // 3) Init sliders (避免触发事件先把 value 赋好再绑事件)
         masterSlider.SetValueWithoutNotify(_data.master);
         bgmSlider.SetValueWithoutNotify(_data.bgm);
         sfxSlider.SetValueWithoutNotify(_data.sfx);
@@ -57,6 +55,8 @@ public class SettingsWindow : UIWindow
 
     public override void OnPopped()
     {
+        Debug.Log("timeScale=" + Time.timeScale);
+
         masterSlider.onValueChanged.RemoveListener(OnMasterChanged);
         bgmSlider.onValueChanged.RemoveListener(OnBgmChanged);
         sfxSlider.onValueChanged.RemoveListener(OnSfxChanged);
@@ -73,6 +73,7 @@ public class SettingsWindow : UIWindow
         }
 
         _input.EnableGameplay();
+
     }
 
     private void OnMasterChanged(float v)

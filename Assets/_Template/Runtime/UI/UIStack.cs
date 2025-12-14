@@ -35,6 +35,7 @@ namespace ZXTemplate.UI
             while (_stack.Count > 0)
             {
                 var w = _stack.Pop();
+                w.OnPopped();
                 Destroy(w.gameObject);
             }
         }

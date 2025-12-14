@@ -341,7 +341,8 @@ MonoBehaviour:
   bgmSlider: {fileID: 974793021787527474}
   sfxSlider: {fileID: 2792707651987703577}
   closeButton: {fileID: 9021090507750005144}
-  pauseGameOnOpen: 1
+  pauseGameOnOpen: 0
+  returnToGameplayOnClose: 0
 --- !u!1 &1150777995934723509
 GameObject:
   m_ObjectHideFlags: 0

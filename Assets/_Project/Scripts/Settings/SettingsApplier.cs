@@ -1,5 +1,6 @@
-using ZXTemplate.Core;
+using UnityEngine;
 using ZXTemplate.Audio;
+using ZXTemplate.Core;
 
 public static class SettingsApplier
 {
@@ -14,5 +15,15 @@ public static class SettingsApplier
         audio.SetMixerVolume(MasterParam, data.master);
         audio.SetMixerVolume(BgmParam, data.bgm);
         audio.SetMixerVolume(SfxParam, data.sfx);
+
+        AudioListener.pause = false;
+        AudioListener.volume = 1f;
+
+        if (audio.TryGetMixerDb(MasterParam, out var m))
+            Debug.Log($"Mixer {MasterParam} = {m} dB");
+        if (audio.TryGetMixerDb(BgmParam, out var b))
+            Debug.Log($"Mixer {BgmParam} = {b} dB");
+        if (audio.TryGetMixerDb(SfxParam, out var s))
+            Debug.Log($"Mixer {SfxParam} = {s} dB");
     }
 }
