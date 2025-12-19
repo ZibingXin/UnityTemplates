@@ -1,103 +1,287 @@
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using ZXTemplate.Core;
 using ZXTemplate.Input;
-using ZXTemplate.Save;
+using ZXTemplate.Settings;
 using ZXTemplate.UI;
 
 public class SettingsWindow : UIWindow
 {
-    [Header("UI")]
-    [SerializeField] private Slider masterSlider;
-    [SerializeField] private Slider bgmSlider;
-    [SerializeField] private Slider sfxSlider;
+    [Header("Tabs")]
+    [SerializeField] private Button tabAudioButton;
+    [SerializeField] private Button tabVideoButton;
+    [SerializeField] private GameObject audioPanel;
+    [SerializeField] private GameObject videoPanel;
 
+    [Header("Common")]
     [SerializeField] private Button closeButton;
-    
-    private ISaveService _save;
-    //private IInputService _input;
+
+    [Header("Audio UI")]
+    [SerializeField] private Slider masterSlider;
+    [SerializeField] private Toggle masterMuteToggle;
+
+    [SerializeField] private Slider bgmSlider;
+    [SerializeField] private Toggle bgmMuteToggle;
+
+    [SerializeField] private Slider sfxSlider;
+    [SerializeField] private Toggle sfxMuteToggle;
+
+    [Header("Video UI")]
+    [SerializeField] private TMP_Dropdown resolutionDropdown;
+    [SerializeField] private Toggle fullscreenToggle;
+    [SerializeField] private TMP_Dropdown qualityDropdown;
+
+    [Header("Behavior")]
+    [SerializeField] private bool pauseGameOnOpen = false;
+
+    private ISettingsService _settings;
     private IInputModeService _inputMode;
     private IPauseService _pause;
 
-    private SettingsData _data;
     private object _inputToken;
     private object _pauseToken;
 
+    private readonly List<(int w, int h)> _resOptions = new();
+    private bool _ignoreEvents;
+
     public override void OnPushed()
     {
-        Debug.Log($"AudioListener.pause={AudioListener.pause}, volume={AudioListener.volume}");
-        FindFirstObjectByType<AudioProbe>()?.Dump("OpenSettings");
-        Debug.Log("timeScale=" + Time.timeScale);
-
-
-        _save = ServiceContainer.Get<ISaveService>();
-        //_input = ServiceContainer.Get<IInputService>();
+        _settings = ServiceContainer.Get<ISettingsService>();
         _inputMode = ServiceContainer.Get<IInputModeService>();
-        _inputToken = _inputMode.Acquire(InputMode.UI, "Settings");
         _pause = ServiceContainer.Get<IPauseService>();
 
-        // 1) Load
-        if (!_save.TryLoad(SettingsKeys.Audio, out _data) || _data == null)
-            _data = new SettingsData();
+        _inputToken = _inputMode.Acquire(InputMode.UI, "SettingsWindow");
+        if (pauseGameOnOpen)
+            _pauseToken = _pause.Acquire("SettingsWindow");
 
-        // 2) Apply once (确保启动时也一致)
-        SettingsApplier.ApplyAudio(_data);
+        // Tabs
+        tabAudioButton.onClick.AddListener(() => ShowTab(true));
+        tabVideoButton.onClick.AddListener(() => ShowTab(false));
 
-        // 3) Input UI
-        //_input.EnableUI();
+        // Close
+        closeButton.onClick.AddListener(Close);
 
-        // 3) Init sliders (避免触发事件先把 value 赋好再绑事件)
-        masterSlider.SetValueWithoutNotify(_data.master);
-        bgmSlider.SetValueWithoutNotify(_data.bgm);
-        sfxSlider.SetValueWithoutNotify(_data.sfx);
+        // Prepare Video dropdowns
+        BuildResolutionOptions();
+        BuildQualityOptions();
 
+        // Bind UI events
         masterSlider.onValueChanged.AddListener(OnMasterChanged);
         bgmSlider.onValueChanged.AddListener(OnBgmChanged);
         sfxSlider.onValueChanged.AddListener(OnSfxChanged);
-        closeButton.onClick.AddListener(Close);
+
+        masterMuteToggle.onValueChanged.AddListener(OnMasterMuteChanged);
+        bgmMuteToggle.onValueChanged.AddListener(OnBgmMuteChanged);
+        sfxMuteToggle.onValueChanged.AddListener(OnSfxMuteChanged);
+
+        resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
+        fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
+        qualityDropdown.onValueChanged.AddListener(OnQualityChanged);
+
+        // Init UI from data
+        SyncUIFromSettings();
+
+        // Default tab
+        ShowTab(true);
     }
 
     public override void OnPopped()
     {
-        Debug.Log("timeScale=" + Time.timeScale);
+        tabAudioButton.onClick.RemoveAllListeners();
+        tabVideoButton.onClick.RemoveAllListeners();
+        closeButton.onClick.RemoveListener(Close);
 
         masterSlider.onValueChanged.RemoveListener(OnMasterChanged);
         bgmSlider.onValueChanged.RemoveListener(OnBgmChanged);
         sfxSlider.onValueChanged.RemoveListener(OnSfxChanged);
-        closeButton.onClick.RemoveListener(Close);
 
-        // Save on close
-        _save.Save(SettingsKeys.Audio, _data);
+        masterMuteToggle.onValueChanged.RemoveListener(OnMasterMuteChanged);
+        bgmMuteToggle.onValueChanged.RemoveListener(OnBgmMuteChanged);
+        sfxMuteToggle.onValueChanged.RemoveListener(OnSfxMuteChanged);
 
-        // Resume & input back
-        if (_pauseToken != null)
-        {
-            _pause.Release(_pauseToken);
-            _pauseToken = null;
-        }
+        resolutionDropdown.onValueChanged.RemoveListener(OnResolutionChanged);
+        fullscreenToggle.onValueChanged.RemoveListener(OnFullscreenChanged);
+        qualityDropdown.onValueChanged.RemoveListener(OnQualityChanged);
 
-        //_input.EnableGameplay();
-        _inputMode.Release(_inputToken);
-        _inputToken = null;
+        // 关窗时保存一次（SaveManager 也会兜底）
+        _settings.Save();
 
+        if (_pauseToken != null) { _pause.Release(_pauseToken); _pauseToken = null; }
+        if (_inputToken != null) { _inputMode.Release(_inputToken); _inputToken = null; }
     }
 
+    private void ShowTab(bool audio)
+    {
+        audioPanel.SetActive(audio);
+        videoPanel.SetActive(!audio);
+    }
+
+    private void SyncUIFromSettings()
+    {
+        _ignoreEvents = true;
+
+        var a = _settings.Data.audio;
+        masterSlider.SetValueWithoutNotify(a.master);
+        bgmSlider.SetValueWithoutNotify(a.bgm);
+        sfxSlider.SetValueWithoutNotify(a.sfx);
+
+        masterMuteToggle.SetIsOnWithoutNotify(a.masterMuted);
+        bgmMuteToggle.SetIsOnWithoutNotify(a.bgmMuted);
+        sfxMuteToggle.SetIsOnWithoutNotify(a.sfxMuted);
+
+        var v = _settings.Data.video;
+        fullscreenToggle.SetIsOnWithoutNotify(v.fullscreen);
+
+        // resolution dropdown: find best match
+        int resIndex = FindResolutionIndex(v.width, v.height);
+        if (resIndex < 0) resIndex = 0;
+        resolutionDropdown.SetValueWithoutNotify(resIndex);
+
+        // quality dropdown
+        int q = Mathf.Clamp(v.qualityIndex, 0, Mathf.Max(0, qualityDropdown.options.Count - 1));
+        qualityDropdown.SetValueWithoutNotify(q);
+
+        _ignoreEvents = false;
+    }
+
+    // -------- Audio handlers --------
     private void OnMasterChanged(float v)
     {
-        _data.master = v;
-        SettingsApplier.ApplyAudio(_data);
+        if (_ignoreEvents) return;
+        _settings.Data.audio.master = v;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
     }
 
     private void OnBgmChanged(float v)
     {
-        _data.bgm = v;
-        SettingsApplier.ApplyAudio(_data);
+        if (_ignoreEvents) return;
+        _settings.Data.audio.bgm = v;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
     }
 
     private void OnSfxChanged(float v)
     {
-        _data.sfx = v;
-        SettingsApplier.ApplyAudio(_data);
+        if (_ignoreEvents) return;
+        _settings.Data.audio.sfx = v;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    private void OnMasterMuteChanged(bool on)
+    {
+        if (_ignoreEvents) return;
+        _settings.Data.audio.masterMuted = on;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    private void OnBgmMuteChanged(bool on)
+    {
+        if (_ignoreEvents) return;
+        _settings.Data.audio.bgmMuted = on;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    private void OnSfxMuteChanged(bool on)
+    {
+        if (_ignoreEvents) return;
+        _settings.Data.audio.sfxMuted = on;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    // -------- Video handlers --------
+    private void OnResolutionChanged(int index)
+    {
+        if (_ignoreEvents) return;
+        if (index < 0 || index >= _resOptions.Count) return;
+
+        var (w, h) = _resOptions[index];
+        _settings.Data.video.width = w;
+        _settings.Data.video.height = h;
+
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    private void OnFullscreenChanged(bool on)
+    {
+        if (_ignoreEvents) return;
+        _settings.Data.video.fullscreen = on;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    private void OnQualityChanged(int index)
+    {
+        if (_ignoreEvents) return;
+        _settings.Data.video.qualityIndex = index;
+        _settings.MarkDirty();
+        _settings.ApplyAll();
+    }
+
+    // -------- Dropdown building --------
+    private void BuildResolutionOptions()
+    {
+        _resOptions.Clear();
+        resolutionDropdown.ClearOptions();
+
+        // 用系统支持分辨率去重（只保留 w×h）
+        var set = new HashSet<(int, int)>();
+        var list = new List<(int w, int h)>();
+
+        foreach (var r in Screen.resolutions)
+        {
+            var key = (r.width, r.height);
+            if (set.Add(key))
+                list.Add(key);
+        }
+
+        // 如果拿不到（某些平台/编辑器情况），至少给几个常用
+        if (list.Count == 0)
+        {
+            list.Add((1920, 1080));
+            list.Add((1600, 900));
+            list.Add((1280, 720));
+        }
+
+        // 排序：从小到大
+        list.Sort((a, b) =>
+        {
+            int pa = a.w * a.h;
+            int pb = b.w * b.h;
+            return pa.CompareTo(pb);
+        });
+
+        _resOptions.AddRange(list);
+
+        var options = new List<string>();
+        for (int i = 0; i < _resOptions.Count; i++)
+            options.Add($"{_resOptions[i].w} x {_resOptions[i].h}");
+
+        resolutionDropdown.AddOptions(options);
+    }
+
+    private int FindResolutionIndex(int w, int h)
+    {
+        for (int i = 0; i < _resOptions.Count; i++)
+            if (_resOptions[i].w == w && _resOptions[i].h == h) return i;
+        return -1;
+    }
+
+    private void BuildQualityOptions()
+    {
+        qualityDropdown.ClearOptions();
+        var names = QualitySettings.names;
+        var options = new List<string>(names.Length);
+        for (int i = 0; i < names.Length; i++)
+            options.Add(names[i]);
+        qualityDropdown.AddOptions(options);
     }
 
     private void Close()

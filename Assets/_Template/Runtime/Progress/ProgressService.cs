@@ -3,7 +3,7 @@ using ZXTemplate.Save;
 
 namespace ZXTemplate.Progress
 {
-    public class ProgressService : IProgressService
+    public class ProgressService : IProgressService, ISaveParticipant
     {
         public ProgressData Data { get; private set; }
         public event Action OnChanged;
