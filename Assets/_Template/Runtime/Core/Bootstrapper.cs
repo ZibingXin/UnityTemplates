@@ -39,6 +39,7 @@ namespace ZXTemplate.Core
             var pauseService = new PauseService();
             var sceneService = new SceneService(uiService);
             var inputService = new InputService(inputActions);
+            var inputModeService = new InputModeService(inputService);
             var saveService = new JsonSaveService();
             var progressService = new ProgressService(saveService);
 
@@ -51,6 +52,7 @@ namespace ZXTemplate.Core
             ServiceContainer.Register<IPauseService>(pauseService);
             ServiceContainer.Register<ISceneService>(sceneService);
             ServiceContainer.Register<IInputService>(inputService);
+            ServiceContainer.Register<IInputModeService>(inputModeService);
             ServiceContainer.Register<ISaveService>(saveService);
             ServiceContainer.Register<IAudioService>(audioService);
             ServiceContainer.Register<IProgressService>(progressService);

@@ -13,12 +13,14 @@ public class SettingsWindow : UIWindow
     [SerializeField] private Slider sfxSlider;
 
     [SerializeField] private Button closeButton;
-
+    
     private ISaveService _save;
-    private IInputService _input;
+    //private IInputService _input;
+    private IInputModeService _inputMode;
     private IPauseService _pause;
 
     private SettingsData _data;
+    private object _inputToken;
     private object _pauseToken;
 
     public override void OnPushed()
@@ -29,7 +31,9 @@ public class SettingsWindow : UIWindow
 
 
         _save = ServiceContainer.Get<ISaveService>();
-        _input = ServiceContainer.Get<IInputService>();
+        //_input = ServiceContainer.Get<IInputService>();
+        _inputMode = ServiceContainer.Get<IInputModeService>();
+        _inputToken = _inputMode.Acquire(InputMode.UI, "Settings");
         _pause = ServiceContainer.Get<IPauseService>();
 
         // 1) Load
@@ -40,7 +44,7 @@ public class SettingsWindow : UIWindow
         SettingsApplier.ApplyAudio(_data);
 
         // 3) Input UI
-        _input.EnableUI();
+        //_input.EnableUI();
 
         // 3) Init sliders (避免触发事件先把 value 赋好再绑事件)
         masterSlider.SetValueWithoutNotify(_data.master);
@@ -72,7 +76,9 @@ public class SettingsWindow : UIWindow
             _pauseToken = null;
         }
 
-        _input.EnableGameplay();
+        //_input.EnableGameplay();
+        _inputMode.Release(_inputToken);
+        _inputToken = null;
 
     }
 

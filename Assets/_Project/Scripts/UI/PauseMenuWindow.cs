@@ -11,18 +11,22 @@ public class PauseMenuWindow : UIWindow
     [SerializeField] private SettingsWindow settingsWindowPrefab;
 
     private IPauseService _pause;
-    private IInputService _input;
+    //private IInputService _input;
+    private IInputModeService _inputMode;
 
     private object _pauseToken;
+    private object _inputToken;
 
     public override void OnPushed()
     {
         _pause = ServiceContainer.Get<IPauseService>();
-        _input = ServiceContainer.Get<IInputService>();
+        //_input = ServiceContainer.Get<IInputService>();
+        _inputMode = ServiceContainer.Get<IInputModeService>();
 
         // 获得一个暂停 token（引用计数）
         _pauseToken = _pause.Acquire("PauseMenu");
-        _input.EnableUI();
+        //_input.EnableUI();
+        _inputToken = _inputMode.Acquire(InputMode.UI, "PauseMenu");
 
         resumeButton.onClick.AddListener(Resume);
         settingsButton.onClick.AddListener(OpenSettings);
@@ -38,7 +42,10 @@ public class PauseMenuWindow : UIWindow
         _pause.Release(_pauseToken);
         _pauseToken = null;
 
-        _input.EnableGameplay();
+        //_input.EnableGameplay();
+        _inputMode.Release(_inputToken);
+        _inputToken = null;
+
 
     }
 

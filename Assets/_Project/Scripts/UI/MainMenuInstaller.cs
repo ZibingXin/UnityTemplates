@@ -9,7 +9,8 @@ public class MainMenuInstaller : MonoBehaviour
 
     private void Start()
     {
-        ServiceContainer.Get<IInputService>().EnableUI();
+        //ServiceContainer.Get<IInputService>().EnableUI();
+        ServiceContainer.Get<IInputModeService>().SetBaseMode(InputMode.UI);
         ServiceContainer.Get<IUIService>().Push(mainMenuPrefab);
     }
 }
