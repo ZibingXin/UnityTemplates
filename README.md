@@ -1,184 +1,109 @@
-# Unity Template
+# ZXTemplate (Unity)
 
-A lightweight Unity template for beginner projects.  
-Focus: clean structure, small modules, easy to copy, easy to delete.
+A small Unity template for course projects: **Bootstrap + UI + Settings + Save + Progress**.
 
-## Requirements
-- Unity: Unity 6.3 
-- Input: New Input System (recommended) or Both  
-- UI: UGUI  
-- TextMeshPro for UI text  
+## Quick Start (3 steps)
 
-## Project Structure
-```
-Assets/  
-    _Project/ # Game-specific code/assets (per project)  
-    _Template/ # Reusable template modules  
-        Runtime/  
-        Core/ # Bootstrap, services  
-        UI/ # UI root + stack  
-        Scenes/ # Scene loading service  
-        Input/ # Input wrapper service  
-        Audio/ # Audio service (Mixer + library)  
-        Save/ # JSON save service
-```
+### 1) Scenes
+Add scenes to **Build Settings** in this order:
+1. `Bootstrap`
+2. `MainMenu`
+3. `Game`
 
-## How to Run (Important)
-This template uses a Bootstrap scene to initialize services.  
+✅ Always press Play from **Bootstrap** scene.
 
-**Always start Play Mode from `Bootstrap` scene.**
+---
 
-### Scenes (recommended)
-- `Bootstrap` (index 0): initializes services, creates UIRoot/@Audio, loads MainMenu  
-- `MainMenu` (index 1): menu content only, pushes MainMenuWindow  
-- `Game` (index 2): gameplay content, installs game systems (pause, etc.)  
+### 2) Bootstrapper setup
+In `Bootstrap` scene, create `@Bootstrap` and add:
+- `Bootstrapper`
+- (Optional) `SaveManagerRunner`
+- `BootstrapEntry` (auto load MainMenu)
 
-### Build Settings
-`File > Build Settings > Scenes In Build`:  
+Assign in inspector:
+- `UIRoot` prefab
+- `GameInput` (InputActionAsset)
+- `AudioMixer` + groups (BGM/SFX)
+- `AudioLibrary` asset
+- `ConfirmDialogWindow` prefab
+- `ToastView` prefab
 
-0. Bootstrap  
-1. MainMenu  
-2. Game  
+---
 
-## Setup Checklist (First time)
-### 1) Input System
-- `Edit > Project Settings > Player > Active Input Handling` = **Input System Package (New)** (or Both)  
-- Create InputActions asset: `Assets/_Project/Settings/GameInput.inputactions`  
-- Required action maps & actions:  
-  - `Gameplay/Move` (Vector2)  
-  - `Gameplay/Pause` (Button, bind Esc)  
-  - `UI` (optional, for UI navigation)  
+### 3) Scene installers
+**MainMenu** scene:
+- Add `MainMenuInstaller`
+- Assign `MainMenuWindow` prefab
 
-### 2) UIRoot Prefab
-Create `Assets/_Project/Prefabs/UI/UIRoot.prefab` with:  
-- Canvas (Screen Space Overlay)  
-- UIStack object with `UIStack` component  
-- LoadingScreen object with `CanvasGroup` + `LoadingScreen` component  
-- EventSystem (only ONE in the whole game)  
-  - Use `InputSystemUIInputModule`  
-  - Remove `StandaloneInputModule` if present  
+**Game** scene:
+- Add `GameInstaller` (sets base input = Gameplay)
+- Add `HUDInstaller` (shows HUD overlay)
+- Add `PauseMenuController` (Esc toggles pause window)
 
-### 3) Audio
-- Create an `AudioMixer` with groups:  
-  - Master  
-    - BGM  
-    - SFX  
-- Expose Volume parameters:  
-  - Master group Volume -> Exposed Param: `Master`  
-  - BGM group Volume -> Exposed Param: `BGM`  
-  - SFX group Volume -> Exposed Param: `SFX`  
-- Create `AudioLibrary` ScriptableObject and add clips with IDs:  
-  - `bgm_menu`, `bgm_game`, `sfx_click` (example)  
+---
 
-### 4) Bootstrapper (Bootstrap scene)
-In `Bootstrap` scene, create `@Bootstrap` and attach `Bootstrapper`.  
-Assign:  
-- `UIRoot Prefab`  
-- `InputActionAsset`  
-- `AudioMixer`  
-- `AudioLibrary`  
-- `BGM MixerGroup`, `SFX MixerGroup`  
+## How to use (common tasks)
 
-(Optional) Add `BootstrapEntry` to auto-load `MainMenu` on start.  
-
-## Core Systems Included
-### Service Container
-Global access:  
-- `ServiceContainer.Get<IUIService>()`  
-- `ServiceContainer.Get<IInputService>()`  
-- `ServiceContainer.Get<ISceneService>()`  
-- `ServiceContainer.Get<IAudioService>()`  
-- `ServiceContainer.Get<ISaveService>()`  
-- `ServiceContainer.Get<IPauseService>()`  
-
-### UI Stack (Push/Pop)
-- `UIRoot` holds `UIStack`  
-- Windows inherit `UIWindow`  
-- Push:  
+### Open a UI window (stack)
 ```csharp
-ServiceContainer.Get<IUIService>().Push(windowPrefab);
+ServiceContainer.Get<IUIService>().Push(settingsWindowPrefab);
 ```
-- Pop:  
+
+### Close current window
 ```csharp
 ServiceContainer.Get<IUIService>().Pop();
 ```
 
-## Pause Service (Reference-count pause)
-Use tokens to support multiple pause sources (pause menu + console + any pop up, etc.):  
+### Show HUD / Toast (overlay)
 ```csharp
-var pause = ServiceContainer.Get<IPauseService>();
-var token = pause.Acquire("PauseMenu");
-// ...
-pause.Release(token);
+var ui = ServiceContainer.Get<IUIService>();
+ui.ShowOverlay("HUD", hudPrefab);
+ui.ShowOverlay("Toast", toastViewPrefab);
 ```
 
-## Scene Loading
+### Load a scene with loading screen
 ```csharp
 await ServiceContainer.Get<ISceneService>().LoadSceneAsync("Game");
 ```
-Scene load clears UI stack (prevents menu UI sticking across scenes).  
 
-## Settings Window
-Uses sliders (0..1) and saves to JSON  
+---
 
-Applies AudioMixer volumes via exposed params  
+## Settings
 
-Recommended: separate prefabs for menu/game if behavior differs (pause on open etc.)  
+### AudioMixer parameters (required)
+Expose these **Volume (Attenuation)** parameters in your AudioMixer:
+- `Master`
+- `BGM`
+- `SFX`
 
-## Save System (JSON)
+### Apply / Cancel workflow
+SettingsWindow uses snapshot:
+- open → `ExportJsonSnapshot()`
+- cancel → `ImportJsonSnapshot(snapshot, markDirty:false)`
+- apply → `Save()`
 
-`ISaveService` stores JSON files under `Application.persistentDataPath`:
+### Controls rebinding
+Rebind rows use:
+- `actionPath` = `"Map/Action"` (e.g. `Gameplay/Jump`)
+- rebinding supports **non-composite** bindings (Jump/Crouch/Interact).
 
- - settings: `settings_audio.json` (example)
- - progress: `progress_main.json` (example)
+---
 
-## Testing Guide
-### Test A: Only one EventSystem
+## Save / Progress
 
-In Play Mode, search Hierarchy:  
+- JSON files saved to `Application.persistentDataPath`
+- Keys:
+  - settings: `settings_main`
+  - progress: `progress_main`
 
- - `t:EventSystem` => must be exactly 1  
+Progress includes:
+- `coins`, `highScore`, `unlockedLevel`
+- custom ints: `SetInt("key", value)` / `GetInt("key")`
 
-### Test B: Bootstrap creates persistent objects
+---
 
-After entering MainMenu:  
-
- - there should be 1 `@Bootstrap`
- - 1 `UIRoot(Clone)`
- - 1 `@Audio`
-
-### Test C: MainMenu -> Game
-
- - Start button triggers loading screen
- - active scene changes to Game
- - UI from menu is cleared
-
-### Test D: Pause in Game
-
- - Press `Esc` => PauseMenu appears
- - Resume => returns to gameplay
-
-### Test E: Settings Audio
-
- - open Settings, adjust sliders, BGM/SFX volume changes immediately
- - restart play mode, settings persists
-
-## Common Issues & Fixes
-
-### "Service not found: IUIService"
-
-You started from MainMenu/Game scene directly.  
-Fix: always start from Bootstrap scene, or set Bootstrap as Play Mode Start Scene.
-
-### Multiple EventSystems warning
-
-Remove extra EventSystems from MainMenu/Game scenes.
-Keep only the one inside `UIRoot`.
-
-## Modules to be updated in the future
-
- - Object Pool
- - EventBus
- - Debug Console / FPS counter
- - Progress system / achievements
- - Save migration/versioning
+## Naming conventions
+- Persistent roots: `@Bootstrap`, `@Audio`
+- Windows: `XxxWindow`
+- Installers: `XxxInstaller`
+- Services: `IXxxService` / `XxxService`
